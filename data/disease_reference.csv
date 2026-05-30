@@ -1,0 +1,41 @@
+disease,symptoms,description,category
+Type 2 Diabetes,"increased thirst,frequent urination,fatigue,blurred vision,slow healing","A chronic metabolic disorder characterized by insulin resistance and elevated blood glucose levels.",Endocrine
+Hypertension,"headache,dizziness,chest pain,shortness of breath,nosebleeds","High blood pressure condition that increases risk of heart disease and stroke if untreated.",Cardiovascular
+Asthma,"wheezing,shortness of breath,chest tightness,coughing,especially at night","A chronic respiratory condition causing airway inflammation and reversible airflow obstruction.",Respiratory
+Influenza,"fever,chills,muscle aches,fatigue,cough,sore throat","A viral respiratory infection commonly known as the flu, typically seasonal.",Infectious
+Migraine,"severe headache,nausea,sensitivity to light,sensitivity to sound,aura","A neurological condition featuring recurrent moderate to severe headaches often with associated symptoms.",Neurological
+Gastroesophageal Reflux Disease,"heartburn,regurgitation,chest pain,difficulty swallowing,chronic cough","Digestive disorder where stomach acid frequently flows back into the esophagus.",Gastrointestinal
+Rheumatoid Arthritis,"joint pain,joint swelling,morning stiffness,fatigue,fever","An autoimmune inflammatory disorder primarily affecting joints symmetrically.",Autoimmune
+Hypothyroidism,"fatigue,weight gain,cold intolerance,dry skin,hair loss,constipation","Underactive thyroid gland producing insufficient thyroid hormone.",Endocrine
+Anemia,"fatigue,weakness,pale skin,shortness of breath,dizziness,cold hands","Condition of reduced red blood cells or hemoglobin leading to decreased oxygen delivery.",Hematologic
+Chronic Obstructive Pulmonary Disease,"chronic cough,mucus production,shortness of breath,wheezing,chest tightness","Progressive lung disease including emphysema and chronic bronchitis often linked to smoking.",Respiratory
+Depression,"persistent sadness,loss of interest,fatigue,sleep changes,appetite changes,hopelessness","A mood disorder affecting how a person feels, thinks, and handles daily activities.",Psychiatric
+Generalized Anxiety Disorder,"excessive worry,restlessness,fatigue,irritability,muscle tension,sleep problems","A mental health condition characterized by persistent and excessive anxiety.",Psychiatric
+Psoriasis,"red patches,scaly skin,itching,dry cracked skin,joint pain","An immune-mediated skin condition causing rapid skin cell buildup forming scales.",Dermatologic
+Osteoarthritis,"joint pain,stiffness,reduced flexibility,grating sensation,bone spurs","Degenerative joint disease from cartilage breakdown most common in older adults.",Musculoskeletal
+Atrial Fibrillation,"palpitations,shortness of breath,weakness,chest discomfort,dizziness","Irregular and often rapid heart rhythm increasing stroke risk.",Cardiovascular
+Peptic Ulcer Disease,"burning stomach pain,bloating,nausea,heartburn,intolerance to fatty foods","Sores that develop on the lining of the stomach or upper small intestine.",Gastrointestinal
+Urinary Tract Infection,"burning urination,frequent urination,cloudy urine,pelvic pain,fever","Infection affecting any part of the urinary system most commonly the bladder.",Infectious
+Pneumonia,"cough with phlegm,fever,chills,shortness of breath,chest pain","Infection that inflames air sacs in one or both lungs which may fill with fluid.",Infectious
+Hyperthyroidism,"weight loss,rapid heartbeat,increased appetite,nervousness,sweating,tremor","Overactive thyroid producing excess thyroid hormone.",Endocrine
+Epilepsy,"seizures,temporary confusion,staring spell,uncontrollable jerking,loss of awareness","Neurological disorder characterized by recurrent unprovoked seizures.",Neurological
+Crohn Disease,"diarrhea,abdominal pain,fatigue,weight loss,blood in stool","Inflammatory bowel disease causing inflammation of the digestive tract.",Gastrointestinal
+Systemic Lupus Erythematosus,"fatigue,joint pain,rash,fever,hair loss,sensitivity to sun","Autoimmune disease affecting multiple organs with diverse clinical manifestations.",Autoimmune
+Glaucoma,"gradual vision loss,tunnel vision,eye pain,nausea,halos around lights","Group of eye conditions damaging the optic nerve often linked to high eye pressure.",Ophthalmologic
+Parkinson Disease,"tremor,slow movement,rigid muscles,impaired posture,balance problems","Progressive nervous system disorder affecting movement.",Neurological
+Chronic Kidney Disease,"fatigue,swelling,changes in urination,nausea,high blood pressure","Gradual loss of kidney function over time.",Renal
+Breast Cancer,"breast lump,change in breast shape,dimpling,nipple discharge,skin changes","Malignant tumor originating in breast tissue.",Oncologic
+Prostate Cancer,"difficulty urinating,blood in urine,pelvic discomfort,bone pain,erectile dysfunction","Cancer arising in the prostate gland in men.",Oncologic
+Tuberculosis,"persistent cough,weight loss,night sweats,fever,chest pain","Bacterial infection primarily affecting the lungs caused by Mycobacterium tuberculosis.",Infectious
+Hepatitis C,"fatigue,jaundice,abdominal pain,nausea,dark urine","Viral infection causing liver inflammation often becoming chronic.",Infectious
+Multiple Sclerosis,"numbness,weakness,vision problems,coordination difficulty,fatigue","Autoimmune disease affecting the central nervous system disrupting nerve signals.",Neurological
+Alzheimer Disease,"memory loss,confusion,disorientation,mood changes,difficulty planning","Progressive neurodegenerative disorder and most common cause of dementia.",Neurological
+Gout,"sudden severe joint pain,redness,swelling,warmth in big toe","Form of inflammatory arthritis from uric acid crystal deposition in joints.",Musculoskeletal
+Iron Deficiency Anemia,"fatigue,pale skin,shortness of breath,cold hands, brittle nails","Anemia caused by insufficient iron affecting hemoglobin production.",Hematologic
+Sleep Apnea,"loud snoring,gasping during sleep,daytime sleepiness,morning headache","Disorder with repeated breathing interruptions during sleep.",Respiratory
+Eczema,"itchy skin,dry skin,red patches,cracked skin,inflammation","Inflammatory skin condition causing itchy and irritated skin.",Dermatologic
+Celiac Disease,"diarrhea,bloating,fatigue,weight loss,abdominal pain","Immune reaction to eating gluten damaging the small intestine.",Gastrointestinal
+Bipolar Disorder,"mood swings,mania,depression,sleep changes,impulsivity","Mental health condition with alternating episodes of mania and depression.",Psychiatric
+Stroke,"sudden numbness,confusion,trouble speaking,vision loss,severe headache","Medical emergency from interrupted blood supply to the brain.",Cardiovascular
+Heart Failure,"shortness of breath,fatigue,swelling legs,rapid heartbeat,persistent cough","Condition where the heart cannot pump blood effectively.",Cardiovascular
+Lyme Disease,"bullseye rash,fever,fatigue,headache,joint pain","Tick-borne illness caused by Borrelia bacteria.",Infectious

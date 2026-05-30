@@ -1,0 +1,7 @@
+# Optional override: expose backend API on host port 8000
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  backend:
+    ports:
+      - "8000:8000"

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DRUG TOX PRO</title>
+  <link rel="icon" href="/static/images/logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.27.0/plotly.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="/static/images/logo.svg" alt="DRUG TOX PRO" class="brand-logo" />
+        <h1>DRUG TOX PRO</h1>
+        <p>Drug-likeness &amp; toxicity platform</p>
+      </div>
+      <nav class="nav">
+        <button type="button" class="nav-btn active" data-panel="home">Home</button>
+        <button type="button" class="nav-btn" data-panel="admet">ADMET Predictor</button>
+        <button type="button" class="nav-btn" data-panel="viewer">Molecular Viewer</button>
+        <button type="button" class="nav-btn" data-panel="ml">ML Classifier</button>
+        <button type="button" class="nav-btn" data-panel="viz">Visualization</button>
+        <button type="button" class="nav-btn" data-panel="go">GO Enrichment Analysis</button>
+        <button type="button" class="nav-btn" data-panel="disease">Disease Prediction</button>
+        <button type="button" class="nav-btn" data-panel="about">About</button>
+      </nav>
+      <div class="sidebar-footer">
+        RDKit · scikit-learn · FastAPI<br />
+        Dynamic processing
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- Home -->
+      <section id="panel-home" class="panel active">
+        <div class="home-hero">
+          <img src="/static/images/logo.svg" alt="DRUG TOX PRO Logo" class="home-logo" />
+          <h2>Welcome to DRUG TOX PRO</h2>
+          <p class="home-tagline">An integrated platform for computational drug discovery, ADMET profiling, and biomedical data analysis.</p>
+        </div>
+        <div class="feature-grid">
+          <div class="feature-card" data-goto="admet">
+            <h3>ADMET Prediction</h3>
+            <p>Compute molecular descriptors, Lipinski Rule of Five, and toxicity scores from any valid SMILES using RDKit.</p>
+          </div>
+          <div class="feature-card" data-goto="viewer">
+            <h3>Molecular Visualization</h3>
+            <p>Render 2D structures and optional 3D conformers dynamically from SMILES input.</p>
+          </div>
+          <div class="feature-card" data-goto="ml">
+            <h3>Machine Learning Classification</h3>
+            <p>Upload CSV datasets, select features and targets, train models, and evaluate performance metrics.</p>
+          </div>
+          <div class="feature-card" data-goto="viz">
+            <h3>Data Visualization</h3>
+            <p>Generate scatter, heatmap, histogram, bar, line, and correlation plots from uploaded data.</p>
+          </div>
+          <div class="feature-card" data-goto="go">
+            <h3>GO Enrichment Analysis</h3>
+            <p>Perform Gene Ontology enrichment on gene symbol lists with exportable results.</p>
+          </div>
+          <div class="feature-card" data-goto="disease">
+            <h3>Disease Prediction</h3>
+            <p>Identify likely diseases from symptoms and keywords with Google search integration.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ADMET (unchanged) -->
+      <section id="panel-admet" class="panel">
+        <header class="panel-header">
+          <h2>ADMET Predictor</h2>
+          <p>Enter any valid SMILES. Descriptors, Lipinski rules, and toxicity are computed live with RDKit.</p>
+        </header>
+        <div id="admet-alert" class="alert alert-error hidden"></div>
+        <div class="card">
+          <form id="admet-form">
+            <div class="form-row">
+              <div style="flex:1">
+                <label for="admet-smiles">SMILES string</label>
+                <input type="text" id="admet-smiles" class="wide" placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O" value="CC(=O)Oc1ccccc1C(=O)O" />
+              </div>
+              <button type="submit" class="btn btn-primary">Predict ADMET</button>
+            </div>
+          </form>
+        </div>
+        <div id="admet-results"></div>
+      </section>
+
+      <!-- Molecular Viewer (unchanged) -->
+      <section id="panel-viewer" class="panel">
+        <header class="panel-header">
+          <h2>Molecular Viewer</h2>
+          <p>2D structure from RDKit drawing; optional interactive 3D conformer.</p>
+        </header>
+        <div id="viewer-alert" class="alert alert-error hidden"></div>
+        <div class="card">
+          <form id="viewer-form">
+            <div class="form-row">
+              <div style="flex:1">
+                <label for="viewer-smiles">SMILES string</label>
+                <input type="text" id="viewer-smiles" class="wide" placeholder="Enter SMILES" value="CN1C=NC2=C1C(=O)N(C(=O)N2C)C" />
+              </div>
+              <label class="checkbox-inline">
+                <input type="checkbox" id="viewer-show-3d" checked /> 3D view
+              </label>
+              <button type="submit" class="btn btn-primary">Render</button>
+            </div>
+          </form>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>2D Structure</h3>
+            <div class="mol-image-wrap">
+              <img id="viewer-2d-img" alt="2D molecule" />
+            </div>
+          </div>
+          <div class="card" id="viewer-3d-wrap">
+            <h3>3D Structure</h3>
+            <div id="viewer-3d-canvas"></div>
+            <div class="mol-image-wrap" style="margin-top:1rem">
+              <img id="viewer-3d-img" class="hidden" alt="3D molecule render" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ML Classifier -->
+      <section id="panel-ml" class="panel">
+        <header class="panel-header">
+          <h2>ML Classifier</h2>
+          <p>Upload a CSV, preview data, select feature and target columns, train a Random Forest, and download the model.</p>
+          <span id="ml-status-badge" class="badge badge-warning">No model</span>
+        </header>
+        <div id="ml-alert" class="alert alert-error hidden"></div>
+        <div class="card">
+          <form id="ml-form">
+            <div class="form-row">
+              <div>
+                <label for="ml-file">Dataset (CSV or Excel)</label>
+                <input type="file" id="ml-file" accept=".csv,.tsv,.xlsx,.xls" />
+                <p class="text-muted" style="margin-top:0.35rem">Supported: .csv, .tsv, .xlsx, .xls</p>
+              </div>
+            </div>
+            <div id="ml-dataset-info" class="hidden"></div>
+            <div id="ml-preview-wrap" class="hidden"></div>
+            <div id="ml-column-select" class="hidden">
+              <div class="form-row">
+                <div class="col-block">
+                  <label>Feature columns (multi-select)</label>
+                  <select id="ml-feature-cols" multiple size="6"></select>
+                </div>
+                <div class="col-block">
+                  <label for="ml-target-col">Target column</label>
+                  <select id="ml-target-col"></select>
+                  <label for="ml-test-size" style="margin-top:1rem">Test split</label>
+                  <input type="number" id="ml-test-size" value="0.2" min="0.1" max="0.4" step="0.05" />
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary">Train Model</button>
+            </div>
+          </form>
+        </div>
+        <div id="ml-results"></div>
+      </section>
+
+      <!-- Visualization -->
+      <section id="panel-viz" class="panel">
+        <header class="panel-header">
+          <h2>Visualization</h2>
+          <p>Upload a dataset, preview it, select columns and plot type to generate interactive charts.</p>
+        </header>
+        <div id="viz-alert" class="alert alert-error hidden"></div>
+        <div class="card">
+          <form id="viz-form">
+            <div class="form-row">
+              <div>
+                <label for="viz-file">Dataset (CSV or Excel)</label>
+                <input type="file" id="viz-file" accept=".csv,.tsv,.xlsx,.xls" />
+                <p class="text-muted" style="margin-top:0.35rem">Supported: .csv, .tsv, .xlsx, .xls</p>
+              </div>
+              <div>
+                <label for="viz-plot-type">Plot type</label>
+                <select id="viz-plot-type">
+                  <option value="scatter">Scatter Plot</option>
+                  <option value="heatmap">Heatmap</option>
+                  <option value="boxplot">Box Plot</option>
+                  <option value="histogram">Histogram</option>
+                  <option value="bar">Bar Chart</option>
+                  <option value="line">Line Plot</option>
+                  <option value="correlation_matrix">Correlation Matrix</option>
+                </select>
+              </div>
+            </div>
+            <div id="viz-dataset-info" class="hidden"></div>
+            <div id="viz-preview-wrap" class="hidden"></div>
+            <div id="viz-column-fields">
+              <div id="viz-scatter-fields" class="form-row">
+                <div><label for="viz-x">X axis</label><select id="viz-x"></select></div>
+                <div><label for="viz-y">Y axis</label><select id="viz-y"></select></div>
+                <div><label for="viz-color">Color (optional)</label><select id="viz-color"></select></div>
+              </div>
+              <div id="viz-multi-fields" class="hidden">
+                <label>Numeric columns</label>
+                <div id="viz-multi-cols" class="checkbox-grid"></div>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Generate Plot</button>
+          </form>
+        </div>
+        <div id="viz-results"></div>
+      </section>
+
+      <!-- GO Enrichment -->
+      <section id="panel-go" class="panel">
+        <header class="panel-header">
+          <h2>GO Enrichment Analysis</h2>
+          <p>Enter gene symbols or upload a file (.txt / .csv) for Gene Ontology enrichment via Enrichr.</p>
+        </header>
+        <div id="go-alert" class="alert alert-error hidden"></div>
+        <div class="card">
+          <form id="go-form">
+            <label for="go-genes">Gene symbols (comma or newline separated)</label>
+            <textarea id="go-genes" rows="4" placeholder="TP53, BRCA1, EGFR, MYC"></textarea>
+            <div class="form-row" style="margin-top:1rem">
+              <div>
+                <label for="go-file">Or upload file (.txt / .csv)</label>
+                <input type="file" id="go-file" accept=".txt,.csv" />
+              </div>
+              <button type="submit" class="btn btn-primary">Run Enrichment</button>
+            </div>
+          </form>
+        </div>
+        <div id="go-results"></div>
+      </section>
+
+      <!-- Disease Prediction -->
+      <section id="panel-disease" class="panel">
+        <header class="panel-header">
+          <h2>Disease Prediction</h2>
+          <p>Enter a disease name, condition, symptoms, or keywords to identify the most relevant match.</p>
+        </header>
+        <div id="disease-alert" class="alert alert-error hidden"></div>
+        <div class="card">
+          <form id="disease-form">
+            <div class="form-row">
+              <div style="flex:1">
+                <label for="disease-query">Query</label>
+                <input type="text" id="disease-query" class="wide" placeholder="e.g. fever, cough, fatigue, chest pain" />
+              </div>
+              <button type="submit" class="btn btn-primary">Predict Disease</button>
+            </div>
+          </form>
+        </div>
+        <div id="disease-results"></div>
+      </section>
+
+      <!-- About -->
+      <section id="panel-about" class="panel">
+        <header class="panel-header">
+          <h2>About</h2>
+        </header>
+        <div class="card about-card">
+          <img src="/static/images/logo.svg" alt="Logo" class="about-logo" />
+          <p class="about-thanks">Thank you for using <strong>DRUG TOX PRO</strong>.</p>
+          <div class="about-block">
+            <h3>Developed by</h3>
+            <p class="about-name">Vardhi Dimple</p>
+          </div>
+          <div class="about-block">
+            <h3>Contact</h3>
+            <p><a href="mailto:dimplevardhi5@gmail.com">dimplevardhi5@gmail.com</a></p>
+          </div>
+          <p class="about-note">For suggestions, improvements, bug reports, or queries, please contact the developer.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
