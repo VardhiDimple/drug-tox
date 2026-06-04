@@ -1,0 +1,16 @@
+# Render Blueprint — deploy from Dashboard: New > Blueprint > connect repo
+# Or create a Web Service manually and point Dockerfile to ./Dockerfile
+
+services:
+  - type: web
+    name: drug-tox
+    runtime: docker
+    plan: starter
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
