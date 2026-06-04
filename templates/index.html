@@ -3,9 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>DRUG TOX PRO</title>
   <link rel="icon" href="/static/images/logo.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="/static/css/style.css?v=2.4" />
   <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.27.0/plotly.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 </head>
@@ -132,39 +135,100 @@
       <section id="panel-ml" class="panel">
         <header class="panel-header">
           <h2>ML Classifier</h2>
-          <p>Upload a CSV, preview data, select feature and target columns, train a Random Forest, and download the model.</p>
+          <p>Upload a dataset, select target and features, choose a model, train, and download results.</p>
           <span id="ml-status-badge" class="badge badge-warning">No model</span>
         </header>
         <div id="ml-alert" class="alert alert-error hidden"></div>
-        <div class="card">
-          <form id="ml-form">
-            <div class="form-row">
-              <div>
-                <label for="ml-file">Dataset (CSV or Excel)</label>
-                <input type="file" id="ml-file" accept=".csv,.tsv,.xlsx,.xls" />
-                <p class="text-muted" style="margin-top:0.35rem">Supported: .csv, .tsv, .xlsx, .xls</p>
-              </div>
+        <div id="ml-target-warning" class="alert alert-warning hidden"></div>
+
+        <!-- Step 1: Dataset Upload -->
+        <div class="card ml-step">
+          <h3><span class="step-num">1</span> Dataset Upload</h3>
+          <div class="form-row">
+            <div>
+              <label for="ml-file">Dataset (CSV / XLSX)</label>
+              <input type="file" id="ml-file" accept=".csv,.tsv,.txt,.xlsx,.xls" />
+              <p class="text-muted" style="margin-top:0.35rem">Supported: .csv, .tsv, .xlsx, .xls</p>
             </div>
-            <div id="ml-dataset-info" class="hidden"></div>
-            <div id="ml-preview-wrap" class="hidden"></div>
-            <div id="ml-column-select" class="hidden">
-              <div class="form-row">
-                <div class="col-block">
-                  <label>Feature columns (multi-select)</label>
-                  <select id="ml-feature-cols" multiple size="6"></select>
-                </div>
-                <div class="col-block">
-                  <label for="ml-target-col">Target column</label>
-                  <select id="ml-target-col"></select>
-                  <label for="ml-test-size" style="margin-top:1rem">Test split</label>
-                  <input type="number" id="ml-test-size" value="0.2" min="0.1" max="0.4" step="0.05" />
-                </div>
-              </div>
-              <button type="submit" class="btn btn-primary">Train Model</button>
-            </div>
-          </form>
+          </div>
+          <div id="ml-dataset-info" class="hidden"></div>
+          <div id="ml-dtypes-info" class="hidden"></div>
+          <div id="ml-missing-info" class="hidden"></div>
+          <div id="ml-preview-wrap" class="hidden"></div>
         </div>
-        <div id="ml-results"></div>
+
+        <!-- Step 2: Target Column -->
+        <div id="ml-step-target" class="card ml-step hidden">
+          <h3><span class="step-num">2</span> Target Column Selection</h3>
+          <p class="text-muted">Select exactly ONE column to predict. Must be categorical or binary.</p>
+          <div class="form-row">
+            <div>
+              <label for="ml-target-col">Target column</label>
+              <select id="ml-target-col">
+                <option value="">— Select target column —</option>
+              </select>
+            </div>
+          </div>
+          <div id="ml-target-info" class="hidden"></div>
+        </div>
+
+        <!-- Step 3: Feature Selection -->
+        <div id="ml-step-features" class="card ml-step hidden">
+          <h3><span class="step-num">3</span> Feature Column Selection</h3>
+          <p class="text-muted">Select one or more feature columns. The target column is excluded automatically.</p>
+          <label for="ml-feature-cols">Feature columns (multi-select — Ctrl+click)</label>
+          <select id="ml-feature-cols" multiple size="8" class="ml-feature-select"></select>
+          <p id="ml-feature-hint" class="text-muted hidden" style="margin-top:0.5rem">Select at least one feature to continue.</p>
+        </div>
+
+        <!-- Step 4: Model Selection -->
+        <div id="ml-step-model" class="card ml-step hidden">
+          <h3><span class="step-num">4</span> Model Selection</h3>
+          <div class="form-row">
+            <div>
+              <label for="ml-model-type">Classifier</label>
+              <select id="ml-model-type">
+                <option value="">— Select model —</option>
+                <option value="random_forest">Random Forest</option>
+                <option value="logistic_regression">Logistic Regression</option>
+                <option value="decision_tree">Decision Tree</option>
+                <option value="svm">Support Vector Machine</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 5: Training Parameters -->
+        <div id="ml-step-config" class="card ml-step hidden">
+          <h3><span class="step-num">5</span> Training Parameters</h3>
+          <div class="form-row">
+            <div>
+              <label for="ml-test-size">Test Size (0.1–0.4)</label>
+              <input type="number" id="ml-test-size" value="0.2" min="0.1" max="0.4" step="0.05" />
+            </div>
+            <div>
+              <label for="ml-random-state">Random State</label>
+              <input type="number" id="ml-random-state" value="42" min="0" step="1" />
+            </div>
+            <div>
+              <label for="ml-cv-folds">Cross Validation Folds</label>
+              <input type="number" id="ml-cv-folds" value="5" min="2" max="10" step="1" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 6: Train -->
+        <div id="ml-step-train" class="card ml-step hidden">
+          <h3><span class="step-num">6</span> Train Model</h3>
+          <p class="text-muted">Review your selections above, then click Train to build the classifier.</p>
+          <div id="ml-pretrain-debug" class="ml-pretrain-panel hidden"></div>
+          <button type="button" id="ml-train-btn" class="btn btn-primary" disabled>Train Model</button>
+        </div>
+
+        <!-- Step 7: Results -->
+        <div id="ml-step-results" class="hidden">
+          <div id="ml-results"></div>
+        </div>
       </section>
 
       <!-- Visualization -->
@@ -279,6 +343,35 @@
       </section>
     </main>
   </div>
-  <script src="/static/js/app.js"></script>
+
+  <!-- Floating AI Assistant -->
+  <div id="chatbot-root">
+    <button type="button" id="chatbot-toggle" class="chatbot-bubble" aria-label="Open AI Assistant">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor" aria-hidden="true">
+        <path d="M12 2C6.48 2 2 6.03 2 11c0 1.74.52 3.37 1.42 4.78L2 22l6.5-1.28C9.82 21.58 10.88 22 12 22c5.52 0 10-4.03 10-9s-4.48-9-10-9zm0 16c-.92 0-1.8-.2-2.58-.56l-.37-.17-3.65.72.73-3.56-.24-.38C5.2 13.01 4 12.06 4 11c0-3.87 3.58-7 8-7s8 3.13 8 7-3.58 7-8 7z"/>
+      </svg>
+    </button>
+    <div id="chatbot-window" class="chatbot-window hidden">
+      <div class="chatbot-header">
+        <div>
+          <strong>DRUG TOX PRO Assistant</strong>
+          <span id="chatbot-panel-label" class="chatbot-panel-label"></span>
+        </div>
+        <div class="chatbot-header-actions">
+          <button type="button" id="chatbot-minimize" class="chatbot-icon-btn" title="Minimize">−</button>
+          <button type="button" id="chatbot-close" class="chatbot-icon-btn" title="Close">×</button>
+        </div>
+      </div>
+      <div id="chatbot-messages" class="chatbot-messages"></div>
+      <div id="chatbot-suggestions" class="chatbot-suggestions"></div>
+      <form id="chatbot-form" class="chatbot-input-row">
+        <input type="text" id="chatbot-input" placeholder="Ask anything about DRUG TOX PRO…" autocomplete="off" />
+        <button type="submit" class="btn btn-primary chatbot-send">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js?v=2.4"></script>
+  <script src="/static/js/chatbot.js?v=2.4"></script>
 </body>
 </html>

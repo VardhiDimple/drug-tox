@@ -7,8 +7,9 @@ from typing import Any
 from rdkit import Chem
 from rdkit.Chem import FilterCatalog
 
+from app.services.admet_ml import predict_toxicity_ml
 from app.services.descriptors import calculate_descriptors, mol_from_smiles
-from app.services.model_store import get_trained_classifier
+from app.services.model_store import is_model_usable_for_admet
 
 
 LIPINSKI_LIMITS = {
@@ -130,28 +131,13 @@ def rule_based_toxicity_score(mol: Chem.Mol, descriptors: dict[str, Any]) -> dic
 
 
 def ml_toxicity_prediction(mol: Chem.Mol) -> dict[str, Any] | None:
-    clf = get_trained_classifier()
-    if clf is None:
+    """Use trained ML model when compatible (fingerprints or descriptor columns from SMILES)."""
+    if not is_model_usable_for_admet():
         return None
-    from app.services.descriptors import morgan_fingerprint_vector
-
-    X = [morgan_fingerprint_vector(mol)]
-    proba = clf.predict_proba(X)[0]
-    pred = int(clf.predict(X)[0])
-    classes = list(clf.classes_)
-    toxic_idx = 1 if len(classes) > 1 and max(classes) == 1 else int(pred)
-    toxic_prob = float(proba[toxic_idx]) if len(proba) > toxic_idx else float(max(proba))
-
-    return {
-        "method": "ml_classifier",
-        "predicted_class": int(pred),
-        "class_labels": [str(c) for c in classes],
-        "probabilities": {str(c): round(float(p), 4) for c, p in zip(classes, proba)},
-        "toxicity_probability": round(toxic_prob, 4),
-        "toxicity_class": "Potentially toxic" if toxic_prob >= 0.5 else "Non-toxic",
-        "risk_score": round(toxic_prob, 3),
-        "risk_label": "Low" if toxic_prob < 0.35 else "Moderate" if toxic_prob < 0.65 else "High",
-    }
+    result = predict_toxicity_ml(mol)
+    if result is None or result.get("method") == "rule_based_fallback":
+        return None
+    return result
 
 
 def predict_admet(smiles: str) -> dict[str, Any]:
@@ -172,7 +158,12 @@ def predict_admet(smiles: str) -> dict[str, Any]:
             "primary": ml_tox if ml_tox else rule_tox,
             "rule_based": rule_tox,
             "ml": ml_tox,
-            "note": "Using trained ML model." if ml_tox else "Train a model in ML Classifier to enable ML-based toxicity.",
+            "note": (
+                f"Using trained ML model ({ml_tox.get('training_mode', 'tabular')} features)."
+                if ml_tox
+                else "Using rule-based scoring. Train a descriptor-based model in ML Classifier "
+                "(e.g. MolecularWeight, LogP, TPSA → Toxicity) to enable ML toxicity for new SMILES."
+            ),
         },
         "admet_summary": {
             "absorption_hint": "Good" if desc_dict["tpsa"] <= 90 and desc_dict["logp"] <= 5 else "Review",

@@ -8,6 +8,7 @@ const navButtons = document.querySelectorAll(".nav-btn");
 function navigateTo(panelId) {
   navButtons.forEach((b) => b.classList.toggle("active", b.dataset.panel === panelId));
   panels.forEach((p) => p.classList.toggle("active", p.id === `panel-${panelId}`));
+  window.dispatchEvent(new CustomEvent("panelchange", { detail: { panel: panelId } }));
 }
 
 navButtons.forEach((btn) => {
@@ -60,18 +61,75 @@ function renderDatasetInfo(data, containerId) {
   if (!el) return;
   el.className = "dataset-info";
   el.innerHTML = `
-    <p><strong>Shape:</strong> ${data.shape.rows} rows × ${data.shape.columns} columns</p>
-    <p><strong>Columns:</strong> ${data.columns.join(", ")}</p>
+    <p><strong>Rows:</strong> ${data.shape.rows} &nbsp;·&nbsp; <strong>Columns:</strong> ${data.shape.columns}</p>
+    <p><strong>Column names:</strong> ${data.columns.join(", ")}</p>
   `;
   el.classList.remove("hidden");
 }
+
+function renderDtypesTable(data, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el || !data.columns?.length) return;
+  const rows = data.columns.map((c) => `<tr><td>${c}</td><td>${data.dtypes?.[c] ?? "—"}</td></tr>`).join("");
+  el.innerHTML = `
+    <div style="margin-top:0.75rem">
+      <p><strong>Data types</strong></p>
+      <div class="table-scroll"><table class="results-table"><thead><tr><th>Column</th><th>Type</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`;
+  el.classList.remove("hidden");
+}
+function renderMissingSummary(data, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const missing = data.missing_summary || {};
+  const keys = Object.keys(missing);
+  if (!keys.length) {
+    el.innerHTML = `<p class="alert alert-success" style="margin-top:0.75rem">No missing values detected.</p>`;
+  } else {
+    const rows = keys.map((col) => {
+      const stats = data.column_stats?.[col] || {};
+      return `<tr><td>${col}</td><td>${missing[col]}</td><td>${stats.missing_pct ?? "—"}%</td></tr>`;
+    }).join("");
+    el.innerHTML = `
+      <div style="margin-top:0.75rem">
+        <p><strong>Missing value summary</strong> (${data.total_missing_cells ?? 0} total missing cells)</p>
+        <div class="table-scroll"><table class="results-table"><thead><tr><th>Column</th><th>Missing</th><th>%</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <p class="text-muted" style="margin-top:0.5rem;font-size:0.8rem">Missing feature values are filled automatically during training. Rows with missing target values are excluded.</p>
+      </div>`;
+  }
+  el.classList.remove("hidden");
+}
+
+function renderClassDistribution(dist, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const rows = Object.entries(dist).map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  el.innerHTML = `
+    <p><strong>Class distribution</strong></p>
+    <table class="results-table"><thead><tr><th>Class</th><th>Count</th></tr></thead><tbody>${rows}</tbody></table>`;
+  el.classList.remove("hidden");
+}
+
+function getActivePanelId() {
+  const active = document.querySelector(".nav-btn.active");
+  return active?.dataset?.panel || "home";
+}
+
+// Expose app context for chatbot
+window.appContext = {
+  getPanel: getActivePanelId,
+  getMlContext: () => window._mlContext || {},
+  getVizContext: () => window._vizContext || {},
+  getLastError: () => window._lastError || null,
+  setLastError: (err) => { window._lastError = err; },
+};
 
 function renderClassificationReport(report, labels) {
   let rows = "";
   for (const label of labels) {
     const r = report[label];
     if (!r || typeof r !== "object") continue;
-    rows += `<tr><td>${label}</td><td>${(r.precision ?? 0).toFixed(3)}</td><td>${(r.recall ?? 0).toFixed(3)}</td><td>${(r.f1-score ?? 0).toFixed(3)}</td><td>${r.support ?? 0}</td></tr>`;
+    rows += `<tr><td>${label}</td><td>${(r.precision ?? 0).toFixed(3)}</td><td>${(r.recall ?? 0).toFixed(3)}</td><td>${(r["f1-score"] ?? 0).toFixed(3)}</td><td>${r.support ?? 0}</td></tr>`;
   }
   return `<table class="results-table"><thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -104,6 +162,7 @@ document.getElementById("admet-form")?.addEventListener("submit", async (e) => {
   const json = await postJSON("/api/admet/predict", { smiles });
   if (!json.success) {
     showAlert("admet-alert", json.error || "Prediction failed");
+    window.appContext.setLastError(json.error || "Prediction failed");
     results.innerHTML = "";
     return;
   }
@@ -210,61 +269,432 @@ function render3DMolecule(data) {
   renderer.render(scene, camera);
 }
 
+function renderConfusionMatrixTable(cm, labels) {
+  if (!cm?.length || !labels?.length) return "";
+  const header = `<tr><th></th>${labels.map((l) => `<th>Pred ${l}</th>`).join("")}</tr>`;
+  const rows = cm.map((row, i) =>
+    `<tr><th>Actual ${labels[i]}</th>${row.map((v) => `<td>${v}</td>`).join("")}</tr>`
+  ).join("");
+  return `<div class="table-scroll"><table class="results-table"><thead>${header}</thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderFeatureImportanceTable(list) {
+  if (!list?.length) return "<p class=\"text-muted\">Not available for this model.</p>";
+  return `<div class="table-scroll"><table class="results-table"><thead><tr><th>Rank</th><th>Feature</th><th>Importance</th></tr></thead><tbody>${list.map((item, i) => `<tr><td>${i + 1}</td><td>${item.feature}</td><td>${item.importance}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = String(text ?? "");
+  return div.innerHTML;
+}
+
+async function fetchMlJson(url, form, timeoutMs = 180000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { method: "POST", body: form, signal: controller.signal, cache: "no-store" });
+    const text = await response.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      throw new Error(`Server returned non-JSON (HTTP ${response.status}): ${text.slice(0, 500)}`);
+    }
+    if (!response.ok && json.success !== false) {
+      json = { success: false, error: json.detail || json.error || `HTTP ${response.status}` };
+    }
+    return json;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("Training timed out after 3 minutes. Try Random Forest, fewer CV folds, or a smaller dataset.");
+    }
+    if (err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError")) {
+      throw new Error("Cannot reach the server. Is Docker running? Open http://localhost:8080 and refresh the page.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function renderMlPretrainDebug(preview) {
+  const el = document.getElementById("ml-pretrain-debug");
+  if (!el || !preview) return;
+  const warnings = (preview.warnings || []).map((w) => `<li>${escapeHtml(w)}</li>`).join("");
+  el.innerHTML = `
+    <h4>Before Training</h4>
+    <p><strong>Selected Features:</strong> ${escapeHtml((preview.feature_columns || []).join(", "))}</p>
+    <p><strong>Selected Target:</strong> ${escapeHtml(preview.target_column)}</p>
+    <p><strong>X Shape:</strong> (${preview.x_shape?.[0] ?? "?"}, ${preview.x_shape?.[1] ?? "?"})</p>
+    <p><strong>y Shape:</strong> (${preview.y_shape?.[0] ?? "?"})</p>
+    <p><strong>Unique Target Classes:</strong> ${escapeHtml((preview.unique_classes || []).join(", "))}</p>
+    ${warnings ? `<ul class="text-muted" style="margin-top:0.5rem;font-size:0.85rem">${warnings}</ul>` : ""}`;
+  el.classList.remove("hidden");
+}
+
+function renderMlTrainingResults(d) {
+  const distRows = Object.entries(d.class_distribution || {})
+    .map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${v}</td></tr>`).join("");
+  const predRows = (d.predictions || []).slice(0, 20)
+    .map((r) => `<tr><td>${escapeHtml(r.actual)}</td><td>${escapeHtml(r.predicted)}</td></tr>`).join("");
+  const dbg = d.debug || {};
+  const dbgWarnings = (dbg.warnings || []).map((w) => `<li>${escapeHtml(w)}</li>`).join("");
+
+  return `
+    <p class="alert alert-success">Model trained successfully.</p>
+    <div class="card ml-step"><h3><span class="step-num">7</span> Results Dashboard</h3></div>
+    <div class="card"><h3>Dataset Summary</h3>
+      <div class="stat-grid">
+        ${statBox("Total Rows", d.total_rows ?? d.samples_used)}
+        ${statBox("Total Columns", d.total_columns ?? "—")}
+        ${statBox("Features", d.n_features)}
+        ${statBox("Target", d.target_column)}
+      </div>
+      <p style="margin-top:0.75rem"><strong>Selected Target Column:</strong> ${escapeHtml(d.target_column)}</p>
+      <div style="margin-top:1rem"><strong>Class Distribution</strong>
+        <table class="results-table"><thead><tr><th>Class</th><th>Count</th></tr></thead><tbody>${distRows}</tbody></table>
+      </div>
+    </div>
+    <div class="card"><h3>Model Performance</h3>
+      <div class="stat-grid">
+        ${statBox("Accuracy", d.accuracy)}
+        ${statBox("Precision", d.precision)}
+        ${statBox("Recall", d.recall)}
+        ${statBox("F1 Score", d.f1_score)}
+        ${statBox("AUC Score", d.auc ?? "N/A")}
+      </div>
+      <p class="text-muted" style="margin-top:0.5rem">Model: ${escapeHtml(d.model_name)}</p>
+    </div>
+    <div class="card"><h3>Classification Report</h3>
+      <pre class="code-block" style="white-space:pre-wrap;font-size:0.8rem">${escapeHtml(d.classification_report_text || "")}</pre>
+      ${renderClassificationReport(d.classification_report, d.class_labels)}
+    </div>
+    <div class="card"><h3>Confusion Matrix (Table)</h3>
+      ${renderConfusionMatrixTable(d.confusion_matrix, d.confusion_matrix_labels || d.class_labels)}
+    </div>
+    ${d.confusion_matrix_png ? `<div class="card"><h3>Confusion Matrix (Heatmap)</h3><div class="plot-container"><img src="data:image/png;base64,${d.confusion_matrix_png}" alt="Confusion Matrix"/></div></div>` : ""}
+    ${d.roc_curve_png ? `<div class="card"><h3>ROC Curve</h3><p><strong>AUC Score:</strong> ${d.auc ?? "N/A"}</p><div class="plot-container"><img src="data:image/png;base64,${d.roc_curve_png}" alt="ROC"/></div></div>` : `<div class="card"><h3>ROC / AUC</h3><p><strong>AUC Score:</strong> ${d.auc ?? "N/A (multi-class or insufficient data)"}</p></div>`}
+    <div class="card"><h3>Prediction Preview (first 20 rows)</h3>
+      <div class="table-scroll"><table class="results-table"><thead><tr><th>Actual</th><th>Predicted</th></tr></thead><tbody>${predRows}</tbody></table></div>
+    </div>
+    <div class="card"><h3>Feature Importance</h3>
+      ${renderFeatureImportanceTable(d.feature_importance)}
+      ${d.feature_importance_png ? `<div class="plot-container" style="margin-top:1rem"><img src="data:image/png;base64,${d.feature_importance_png}" alt="Feature Importance"/></div>` : ""}
+    </div>
+    <div class="card"><h3>Downloads</h3>
+      <div class="form-row">
+        <a href="/api/ml/download" class="btn btn-secondary">trained_model.pkl</a>
+        <a href="/api/ml/download-predictions" class="btn btn-secondary">predictions.csv</a>
+      </div>
+    </div>
+    <details class="card ml-debug-details">
+      <summary><strong>Debug Information</strong></summary>
+      <div style="margin-top:0.75rem;font-size:0.85rem">
+        <p><strong>Dataset shape:</strong> ${dbg.dataset_shape?.[0]} rows × ${dbg.dataset_shape?.[1]} columns</p>
+        <p><strong>Feature columns:</strong> ${escapeHtml((dbg.feature_columns || []).join(", "))}</p>
+        <p><strong>Target column:</strong> ${escapeHtml(dbg.target_column)}</p>
+        <p><strong>Model:</strong> ${escapeHtml(dbg.model_name || d.model_name)}</p>
+        <p><strong>Train / Test sizes:</strong> ${dbg.train_size} / ${dbg.test_size}</p>
+        <p><strong>Test split ratio:</strong> ${dbg.test_split_ratio}</p>
+        <p><strong>X shape:</strong> (${dbg.x_shape?.[0]}, ${dbg.x_shape?.[1]})</p>
+        <p><strong>y shape:</strong> (${dbg.y_shape?.[0]})</p>
+        <p><strong>Unique classes:</strong> ${escapeHtml((dbg.unique_classes || []).join(", "))}</p>
+        ${dbgWarnings ? `<p><strong>Warnings:</strong></p><ul>${dbgWarnings}</ul>` : "<p><strong>Warnings:</strong> None</p>"}
+      </div>
+    </details>`;
+}
+
+function showMlTrainingError(message, detail) {
+  const resultsWrap = document.getElementById("ml-step-results");
+  const results = document.getElementById("ml-results");
+  resultsWrap?.classList.remove("hidden");
+  results.innerHTML = `
+    <div class="card">
+      <h3>Training Failed</h3>
+      <p class="alert alert-error">${escapeHtml(message)}</p>
+      ${detail ? `<details open><summary>Error details</summary><pre class="code-block" style="white-space:pre-wrap;font-size:0.75rem;max-height:320px;overflow:auto">${escapeHtml(detail)}</pre></details>` : ""}
+    </div>`;
+  resultsWrap?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function refreshMlPretrainDebug() {
+  const panel = document.getElementById("ml-pretrain-debug");
+  if (!panel || !mlFile || !mlTargetValid) {
+    panel?.classList.add("hidden");
+    return;
+  }
+  const features = getSelectedMlFeatures();
+  const target = document.getElementById("ml-target-col")?.value;
+  const modelType = document.getElementById("ml-model-type")?.value;
+  if (!features.length || !target || !modelType) {
+    panel.classList.add("hidden");
+    return;
+  }
+  panel.innerHTML = '<p class="loading">Loading training preview…</p>';
+  panel.classList.remove("hidden");
+  try {
+    const form = new FormData();
+    form.append("file", mlFile);
+    form.append("feature_columns", features.join(","));
+    form.append("target_column", target);
+    form.append("test_size", document.getElementById("ml-test-size")?.value || "0.2");
+    const json = await fetchMlJson("/api/ml/prepare", form);
+    if (!json.success) {
+      panel.innerHTML = `<p class="alert alert-error">${escapeHtml(json.error)}</p>`;
+      return;
+    }
+    renderMlPretrainDebug(json.data);
+  } catch (err) {
+    panel.innerHTML = `<p class="alert alert-error">${escapeHtml(err.message)}</p>`;
+  }
+}
 // ——— ML Classifier ———
 let mlFile = null;
+let mlDataset = null;
+let mlTargetValid = false;
+
+const ML_WORKFLOW_STEPS = [
+  "ml-step-target",
+  "ml-step-features",
+  "ml-step-model",
+  "ml-step-config",
+  "ml-step-train",
+];
+
+function hideAllMlWorkflowSteps() {
+  ML_WORKFLOW_STEPS.forEach((id) => document.getElementById(id)?.classList.add("hidden"));
+  document.getElementById("ml-step-results")?.classList.add("hidden");
+  const results = document.getElementById("ml-results");
+  if (results) results.innerHTML = "";
+}
+
+/** Show workflow steps 1..visibleCount (1=target only, 5=all incl. train) */
+function revealMlWorkflow(visibleCount) {
+  ML_WORKFLOW_STEPS.forEach((id, i) => {
+    document.getElementById(id)?.classList.toggle("hidden", i >= visibleCount);
+  });
+}
+
+function getSelectedMlFeatures() {
+  const sel = document.getElementById("ml-feature-cols");
+  if (!sel) return [];
+  return [...sel.selectedOptions].map((o) => o.value);
+}
+
+function updateMlFeatureOptions(columns, targetCol) {
+  const sel = document.getElementById("ml-feature-cols");
+  if (!sel) return;
+  const features = columns.filter((c) => c !== targetCol);
+  sel.innerHTML = features.map((c) => `<option value="${c}">${c}</option>`).join("");
+  [...sel.options].forEach((o) => { o.selected = true; });
+}
+
+function updateMlTrainButtonState() {
+  const btn = document.getElementById("ml-train-btn");
+  if (!btn) return;
+  const target = document.getElementById("ml-target-col")?.value;
+  const features = getSelectedMlFeatures();
+  const model = document.getElementById("ml-model-type")?.value;
+  btn.disabled = !(mlTargetValid && target && features.length > 0 && model);
+}
+
+function onMlFeaturesChanged() {
+  const features = getSelectedMlFeatures();
+  const hint = document.getElementById("ml-feature-hint");
+  if (hint) hint.classList.toggle("hidden", features.length > 0);
+  revealMlWorkflow(features.length > 0 ? 3 : 2);
+  updateMlTrainButtonState();
+}
+
+function onMlModelChanged() {
+  if (document.getElementById("ml-model-type")?.value) {
+    revealMlWorkflow(5);
+    refreshMlPretrainDebug();
+  }
+  updateMlTrainButtonState();
+}
+
+async function validateMlTarget() {
+  const target = document.getElementById("ml-target-col")?.value;
+  const warnEl = document.getElementById("ml-target-warning");
+  const infoEl = document.getElementById("ml-target-info");
+  mlTargetValid = false;
+  hideAlert("ml-target-warning");
+  if (infoEl) { infoEl.classList.add("hidden"); infoEl.innerHTML = ""; }
+  updateMlTrainButtonState();
+
+  if (!mlFile || !target) {
+    revealMlWorkflow(1);
+    return;
+  }
+
+  const form = new FormData();
+  form.append("file", mlFile);
+  form.append("target_column", target);
+  let json;
+  try {
+    json = await fetchMlJson("/api/ml/validate-target", form, 60000);
+  } catch (err) {
+    showAlert("ml-alert", err.message);
+    window.appContext.setLastError(err.message);
+    revealMlWorkflow(1);
+    return;
+  }
+
+  if (!json.success) {
+    showAlert("ml-alert", json.error);
+    window.appContext.setLastError(json.error);
+    revealMlWorkflow(1);
+    return;
+  }
+
+  const data = json.data;
+  if (data.is_continuous) {
+    warnEl.textContent = "Selected column appears continuous. Choose a categorical target column for classification.";
+    warnEl.classList.remove("hidden");
+    window.appContext.setLastError(warnEl.textContent);
+    revealMlWorkflow(1);
+    return;
+  }
+
+  mlTargetValid = true;
+  hideAlert("ml-alert");
+  renderClassDistribution(data.class_distribution, "ml-target-info");
+
+  window._mlContext = {
+    ...(window._mlContext || {}),
+    target_column: target,
+    class_distribution: data.class_distribution,
+  };
+
+  updateMlFeatureOptions(mlDataset.columns, target);
+  revealMlWorkflow(2);
+  onMlFeaturesChanged();
+}
+
+function resetMlWorkflowAfterUpload() {
+  mlTargetValid = false;
+  hideAllMlWorkflowSteps();
+  document.getElementById("ml-target-col").innerHTML =
+    '<option value="">— Select target column —</option>' +
+    mlDataset.columns.map((c) => `<option value="${c}">${c}</option>`).join("");
+  document.getElementById("ml-model-type").value = "";
+  document.getElementById("ml-feature-cols").innerHTML = "";
+  updateMlTrainButtonState();
+}
 
 document.getElementById("ml-file")?.addEventListener("change", async (e) => {
   mlFile = e.target.files[0];
   if (!mlFile) return;
+
+  hideAlert("ml-alert");
+  hideAlert("ml-target-warning");
+  hideAllMlWorkflowSteps();
+
   const form = new FormData();
   form.append("file", mlFile);
-  const json = await (await fetch("/api/ml/preview", { method: "POST", body: form })).json();
-  if (!json.success) { showAlert("ml-alert", json.error); return; }
-  hideAlert("ml-alert");
+  const json = await fetchMlJson("/api/ml/preview", form, 60000).catch((err) => ({ success: false, error: err.message }));
+  if (!json.success) {
+    showAlert("ml-alert", json.error);
+    window.appContext.setLastError(json.error);
+    return;
+  }
+
   const data = json.data;
+  mlDataset = data;
+
+  window._mlContext = {
+    columns: data.columns,
+    column_stats: data.column_stats,
+    numeric_columns: data.numeric_columns,
+    categorical_columns: data.categorical_columns,
+    shape: data.shape,
+    dtypes: data.dtypes,
+  };
+
   renderDatasetInfo(data, "ml-dataset-info");
-  document.getElementById("ml-preview-wrap").innerHTML = `<div class="card"><h3>Dataset Preview</h3>${renderPreviewTable(data.preview, data.columns)}</div>`;
+  renderDtypesTable(data, "ml-dtypes-info");
+  renderMissingSummary(data, "ml-missing-info");
+  document.getElementById("ml-preview-wrap").innerHTML =
+    `<div style="margin-top:1rem"><h4>Dataset Preview (first ${data.preview_rows} rows)</h4>${renderPreviewTable(data.preview, data.columns)}</div>`;
   document.getElementById("ml-preview-wrap").classList.remove("hidden");
-  const featSel = document.getElementById("ml-feature-cols");
+
+  resetMlWorkflowAfterUpload();
+  revealMlWorkflow(1);
+
+  // Auto-select Toxicity/class target when present (user can change)
   const targetSel = document.getElementById("ml-target-col");
-  featSel.innerHTML = data.columns.map((c) => `<option value="${c}">${c}</option>`).join("");
-  targetSel.innerHTML = data.columns.map((c) => `<option value="${c}">${c}</option>`).join("");
   const lower = data.columns.map((c) => c.toLowerCase());
-  if (lower.includes("smiles")) Array.from(featSel.options).find((o) => o.value.toLowerCase() === "smiles").selected = true;
-  if (lower.includes("class")) targetSel.value = data.columns[lower.indexOf("class")];
-  document.getElementById("ml-column-select").classList.remove("hidden");
+  if (lower.includes("toxicity")) {
+    targetSel.value = data.columns[lower.indexOf("toxicity")];
+    await validateMlTarget();
+  } else if (lower.includes("class")) {
+    targetSel.value = data.columns[lower.indexOf("class")];
+    await validateMlTarget();
+  }
 });
 
-document.getElementById("ml-form")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
+document.getElementById("ml-target-col")?.addEventListener("change", validateMlTarget);
+document.getElementById("ml-feature-cols")?.addEventListener("change", onMlFeaturesChanged);
+document.getElementById("ml-model-type")?.addEventListener("change", onMlModelChanged);
+
+document.getElementById("ml-train-btn")?.addEventListener("click", async () => {
   hideAlert("ml-alert");
-  if (!mlFile) { showAlert("ml-alert", "Upload a CSV file first."); return; }
-  const features = [...document.getElementById("ml-feature-cols").selectedOptions].map((o) => o.value);
+  if (!mlFile) { showAlert("ml-alert", "Upload a dataset first."); return; }
+  if (!mlTargetValid) { showAlert("ml-alert", "Select a valid target column first."); return; }
+
+  const features = getSelectedMlFeatures();
   const target = document.getElementById("ml-target-col").value;
+  const modelType = document.getElementById("ml-model-type").value;
+
+  if (!target) { showAlert("ml-alert", "Select a target column."); return; }
   if (!features.length) { showAlert("ml-alert", "Select at least one feature column."); return; }
+  if (!modelType) { showAlert("ml-alert", "Select a model type."); return; }
+  if (features.includes(target)) { showAlert("ml-alert", "Target column cannot be a feature."); return; }
+
   const form = new FormData();
   form.append("file", mlFile);
   form.append("feature_columns", features.join(","));
   form.append("target_column", target);
+  form.append("model_type", modelType);
   form.append("test_size", document.getElementById("ml-test-size").value || "0.2");
+  form.append("random_state", document.getElementById("ml-random-state").value || "42");
+  form.append("cv_folds", document.getElementById("ml-cv-folds").value || "5");
+
+  const resultsWrap = document.getElementById("ml-step-results");
   const results = document.getElementById("ml-results");
-  results.innerHTML = '<p class="loading">Training model…</p>';
-  const json = await (await fetch("/api/ml/train", { method: "POST", body: form })).json();
-  if (!json.success) { showAlert("ml-alert", json.error); results.innerHTML = ""; return; }
-  const d = json.data;
-  results.innerHTML = `
-    <div class="card"><h3>Training Results</h3>
-      <div class="stat-grid">${statBox("Accuracy", (d.accuracy * 100).toFixed(1) + "%")}${statBox("AUC", d.auc ?? "N/A")}${statBox("Samples", d.samples_used)}${statBox("Mode", d.training_mode)}</div>
-      <p class="alert alert-success" style="margin-top:1rem">${d.model_ready_for_admet ? "SMILES model ready for ADMET toxicity." : "Tabular model trained successfully."}</p>
-      <a href="/api/ml/download" class="btn btn-secondary" style="margin-top:0.75rem;display:inline-block">Download Model (.joblib)</a>
-    </div>
-    <div class="card"><h3>Classification Report</h3>${renderClassificationReport(d.classification_report, d.class_labels)}</div>
-    <div class="grid-2">
-      ${d.confusion_matrix_png ? `<div class="card"><h3>Confusion Matrix</h3><div class="plot-container"><img src="data:image/png;base64,${d.confusion_matrix_png}" alt="CM"/></div></div>` : ""}
-      ${d.roc_curve_png ? `<div class="card"><h3>ROC Curve</h3><div class="plot-container"><img src="data:image/png;base64,${d.roc_curve_png}" alt="ROC"/></div></div>` : ""}
-    </div>`;
-  document.getElementById("ml-status-badge").textContent = "Model loaded";
-  document.getElementById("ml-status-badge").className = "badge badge-success";
+  resultsWrap.classList.remove("hidden");
+  results.innerHTML = '<p class="loading">Training model… This may take up to 2 minutes.</p>';
+  resultsWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const trainBtn = document.getElementById("ml-train-btn");
+  if (trainBtn) trainBtn.disabled = true;
+
+  try {
+    const json = await fetchMlJson("/api/ml/train", form, 180000);
+    if (!json.success) {
+      const errMsg = json.error || "Training failed.";
+      showAlert("ml-alert", errMsg);
+      window.appContext.setLastError(errMsg);
+      showMlTrainingError(errMsg, json.detail || null);
+      return;
+    }
+    if (!json.data) {
+      showMlTrainingError("Training returned no data.", null);
+      return;
+    }
+    results.innerHTML = renderMlTrainingResults(json.data);
+    document.getElementById("ml-status-badge").textContent = "Model loaded";
+    document.getElementById("ml-status-badge").className = "badge badge-success";
+  } catch (err) {
+    const msg = err.message || String(err);
+    showAlert("ml-alert", msg);
+    window.appContext.setLastError(msg);
+    showMlTrainingError(msg, err.stack || null);
+  } finally {
+    updateMlTrainButtonState();
+  }
 });
 
 // ——— Visualization ———
@@ -288,6 +718,11 @@ document.getElementById("viz-file")?.addEventListener("change", async (e) => {
   if (!json.success) { showAlert("viz-alert", json.error); return; }
   hideAlert("viz-alert");
   const data = json.data;
+  window._vizContext = {
+    columns: data.columns,
+    numeric_columns: data.numeric_columns,
+    categorical_columns: data.categorical_columns,
+  };
   renderDatasetInfo(data, "viz-dataset-info");
   document.getElementById("viz-preview-wrap").innerHTML = `<div class="card"><h3>Dataset Preview</h3>${renderPreviewTable(data.preview, data.columns)}</div>`;
   document.getElementById("viz-preview-wrap").classList.remove("hidden");

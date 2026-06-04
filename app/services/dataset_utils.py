@@ -10,9 +10,32 @@ import pandas as pd
 SUPPORTED_DATASET_EXTENSIONS = {".csv", ".tsv", ".txt", ".xlsx", ".xls"}
 
 
-def dataset_preview(df: pd.DataFrame, head: int = 8) -> dict[str, Any]:
+def _column_stats(df: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    stats: dict[str, dict[str, Any]] = {}
+    n_rows = len(df)
+    for col in df.columns:
+        series = df[col]
+        missing = int(series.isna().sum())
+        nunique = int(series.nunique(dropna=True))
+        is_numeric = pd.api.types.is_numeric_dtype(series)
+        is_continuous = is_numeric and nunique > 20
+        stats[col] = {
+            "missing": missing,
+            "missing_pct": round(missing / n_rows * 100, 2) if n_rows else 0.0,
+            "unique_count": nunique,
+            "is_numeric": is_numeric,
+            "is_continuous": is_continuous,
+        }
+    return stats
+
+
+def dataset_preview(df: pd.DataFrame, head: int = 10) -> dict[str, Any]:
     numeric = df.select_dtypes(include="number").columns.tolist()
     categorical = [c for c in df.columns if c not in numeric]
+    missing_summary = {
+        col: int(df[col].isna().sum()) for col in df.columns if df[col].isna().any()
+    }
+    total_missing = int(df.isna().sum().sum())
     return {
         "shape": {"rows": int(len(df)), "columns": int(len(df.columns))},
         "columns": list(df.columns),
@@ -21,6 +44,9 @@ def dataset_preview(df: pd.DataFrame, head: int = 8) -> dict[str, Any]:
         "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
         "preview": df.head(head).astype(str).to_dict(orient="records"),
         "preview_rows": min(head, len(df)),
+        "missing_summary": missing_summary,
+        "total_missing_cells": total_missing,
+        "column_stats": _column_stats(df),
     }
 
 
