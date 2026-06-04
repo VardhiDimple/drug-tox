@@ -63,13 +63,36 @@ New-NetFirewallRule -DisplayName "DRUG TOX PRO Port 8000" -Direction Inbound -Ac
 
 ---
 
-## Access from the internet (different cities)
+## Access from the internet (different networks / cities)
 
-Local URLs (`192.168.x.x`) only work on your LAN. For access over the internet use one of:
+Local URLs (`localhost`, `192.168.x.x`, `10.x.x.x`) **do not work** for people on another Wi‑Fi or mobile data. Use one of these:
 
-- **[ngrok](https://ngrok.com/)** — `ngrok http 8000` → share the `https://....ngrok.io` link
+### Option A — Quick public link (Docker on port 8080)
+
+**Terminal 1** (keep open):
+
+```powershell
+docker compose up --build
+```
+
+**Terminal 2** (keep open):
+
+```powershell
+.\scripts\start-public-docker.ps1
+```
+
+Copy the **`https://....loca.lt`** URL from the second window and send it to your team. Anyone worldwide can open it while both windows stay open on your PC.
+
+If the site asks for a **tunnel password**, open [https://loca.lt/mytunnelpassword](https://loca.lt/mytunnelpassword) on your PC and share that value with your team (it is tied to your public IP).
+
+### Option B — Other tunnel tools
+
+- **[ngrok](https://ngrok.com/)** — `ngrok http 8080` → share the `https://....ngrok-free.app` link
 - **[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)**
-- Deploy to **Render**, **Railway**, or **Azure** (production)
+
+### Option C — Always-on URL (production)
+
+Deploy the GitHub repo to **Render**, **Railway**, **Fly.io**, or **Azure** so the app runs 24/7 without your PC. Best for a permanent team link.
 
 ---
 
